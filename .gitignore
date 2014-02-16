@@ -2,3 +2,9 @@
 .svn
 .project
 .pydevproject
+/dist
+/build
+/django_paypal.egg-info
+*.swp
+.tox
+.idea/

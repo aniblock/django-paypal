@@ -16,8 +16,8 @@ About
 Django PayPal is a pluggable application that implements with PayPal Payments 
 Standard and Payments Pro.
 
-Before diving in, a quick review of PayPal's payment methods is in order! [PayPal Payments Standard](https://cms.paypal.com/cms_content/US/en_US/files/developer/PP_WebsitePaymentsStandard_IntegrationGuide.pdf) is the "Buy it Now" buttons you may have
-seen floating around the internets. Buyers click on the button and are taken to PayPal's website where they can pay for the product. After completing the purchase PayPal makes an HTTP POST to your  `notify_url`. PayPal calls this process [Instant Payment Notification](https://cms.paypal.com/cms_content/US/en_US/files/developer/PP_OrderMgmt_IntegrationGuide.pdf) (IPN) but you may know it as [webhooks](http://blog.webhooks.org). This method kinda sucks because it drops your customers off at PayPal's website but it's easy to implement and doesn't require SSL.
+Before diving in, a quick review of PayPal's payment methods is in order! [PayPal Payments Standard](https://developer.paypal.com/webapps/developer/docs/classic/paypal-payments-standard/integration-guide/wp_standard_overview/) is the "Buy it Now" buttons you may have
+seen floating around the internets. Buyers click on the button and are taken to PayPal's website where they can pay for the product. After completing the purchase PayPal makes an HTTP POST to your  `notify_url`. PayPal calls this process [Instant Payment Notification](https://cms.paypal.com/cms_content/US/en_US/files/developer/PP_OrderMgmt_IntegrationGuide.pdf) (IPN) but you may know it as [webhooks](http://www.webhooks.org/). This method kinda sucks because it drops your customers off at PayPal's website but it's easy to implement and doesn't require SSL.
 
 PayPal Payments Pro allows you to accept payments on your website. It contains two distinct payment flows - Direct Payment allows the user to enter credit card information on your website and pay on your website. Express Checkout sends the user over to PayPal to confirm their payment method before redirecting back to your website for confirmation. PayPal rules state that both methods must be implemented.
 
@@ -29,7 +29,7 @@ Using PayPal Payments Standard IPN:
 
 1. Download the code from GitHub:
 
-        git clone git://github.com/johnboxall/django-paypal.git paypal
+        git clone git://github.com/spookylukey/django-paypal.git paypal
 
 1. Edit `settings.py` and add  `paypal.standard.ipn` to your `INSTALLED_APPS` 
    and `PAYPAL_RECEIVER_EMAIL`:
@@ -89,9 +89,11 @@ Using PayPal Payments Standard IPN:
     transaction. Connect the signals to actions to perform the needed operations
     when a successful payment is recieved.
     
-    There are two signals for basic transactions:
-    - `payment_was_succesful` 
+    There are four signals for basic transactions:
+    - `payment_was_successful` 
     - `payment_was_flagged`
+    - `payment_was_refunded`
+    - `payment_was_reversed`
     
     And four signals for subscriptions:
     - `subscription_cancel` - Sent when a subscription is cancelled.
@@ -99,7 +101,14 @@ Using PayPal Payments Standard IPN:
     - `subscription_modify` - Sent when a subscription is modified.
     - `subscription_signup` - Sent when a subscription is created.
 
-	Connect to these signals and update your data accordingly. [Django Signals Documentation](http://docs.djangoproject.com/en/dev/topics/signals/).
+    Several more exist for recurring payments:
+    - `recurring_create` - Sent when a recurring payment is created.
+    - `recurring_payment` - Sent when a payment is received from a recurring payment.
+    - `recurring_cancel` - Sent when a recurring payment is cancelled.
+    - `recurring_suspend` - Sent when a recurring payment is suspended.
+    - `recurring_reactivate` - Sent when a recurring payment is reactivated.
+
+    Connect to these signals and update your data accordingly. [Django Signals Documentation](http://docs.djangoproject.com/en/dev/topics/signals/).
 
         # models.py
         ...
@@ -114,7 +123,7 @@ Using PayPal Payments Standard IPN:
         
         
 Using PayPal Payments Standard PDT:
--------------------------------
+-----------------------------------
 
 Paypal Payment Data Transfer (PDT) allows you to display transaction details to a customer immediately on return to your site unlike PayPal IPN which may take some seconds. [You will need to enable PDT in your PayPal account to use it.your PayPal account to use it](https://cms.paypal.com/us/cgi-bin/?cmd=_render-content&content_ID=developer/howto_html_paymentdatatransfer).
 
@@ -145,7 +154,7 @@ Paypal Payment Data Transfer (PDT) allows you to display transaction details to 
         )
 
 Using PayPal Payments Standard with Subscriptions:
--------------------------------
+--------------------------------------------------
 
 1.  For subscription actions, you'll need to add a parameter to tell it to use the subscription buttons and the command, plus any 
     subscription-specific settings:
@@ -259,23 +268,26 @@ Using PayPal Payments Pro (WPP)
 
 WPP is the more awesome version of PayPal that lets you accept payments on your 
 site. WPP reuses code from `paypal.standard` so you'll need to include both 
-apps. [There is an explanation of WPP in the PayPal Forums](http://www.pdncommunity.com/pdn/board/message?board.id=wppro&thread.id=192).
+apps.
 
+1. Obtain PayPal Pro API credentials: login to PayPal, click *My Account*,
+  *Profile*, *Request API credentials*, *Set up PayPal API credentials and
+  permissions*, *View API Signature*.
 
-1. Edit `settings.py` and add  `paypal.standard` and `paypal.pro` to your 
-   `INSTALLED_APPS`, also set your PayPal settings:
+2. Edit `settings.py` and add  `paypal.standard` and `paypal.pro` to your 
+   `INSTALLED_APPS` and put in your PayPal Pro API credentials.
 
         # settings.py
         ...
         INSTALLED_APPS = (... 'paypal.standard', 'paypal.pro', ...)
-        PAYPAL_TEST = True           # Testing mode on
-        PAYPAL_WPP_USER = "???"      # Get from PayPal
+        PAYPAL_TEST = True
+        PAYPAL_WPP_USER = "???"
         PAYPAL_WPP_PASSWORD = "???"
         PAYPAL_WPP_SIGNATURE = "???"
 
-1. Run `python manage.py syncdb` to add the required tables.
+3. Run `python manage.py syncdb` to add the required tables.
 
-1. Write a wrapper view for `paypal.pro.views.PayPalPro`:
+4. Write a wrapper view for `paypal.pro.views.PayPalPro`:
 
         # views.py
         from paypal.pro.views import PayPalPro
@@ -296,25 +308,25 @@ apps. [There is an explanation of WPP in the PayPal Forums](http://www.pdncommun
           return ppp(request)
 
 
-1. Create templates for payment and confirmation. By default both templates are 
+5. Create templates for payment and confirmation. By default both templates are 
    populated with the context variable `form` which contains either a 
    `PaymentForm` or a `Confirmation` form.
 
-    <!-- payment.html -->
-    <h1>Show me the money</h1>
-    <form method="post" action="">
-      {{ form }}
-      <input type="submit" value="Pay Up">
-    </form>
-    
-    <!-- confirmation.html -->
-    <h1>Are you sure you want to buy this thing?</h1>
-    <form method="post" action="">
-      {{ form }}
-      <input type="submit" value="Yes I Yams">
-    </form>
+        <!-- payment.html -->
+        <h1>Show me the money</h1>
+        <form method="post" action="">
+          {{ form }}
+          <input type="submit" value="Pay Up">
+        </form>
+        
+        <!-- confirmation.html -->
+        <h1>Are you sure you want to buy this thing?</h1>
+        <form method="post" action="">
+          {{ form }}
+          <input type="submit" value="Yes I Yams">
+        </form>
 
-1. Add your view to `urls.py`, and add the IPN endpoint to receive callbacks 
+6. Add your view to `urls.py`, and add the IPN endpoint to receive callbacks 
    from PayPal:
 
         # urls.py
@@ -325,7 +337,12 @@ apps. [There is an explanation of WPP in the PayPal Forums](http://www.pdncommun
             (r'^some/obscure/name/', include('paypal.standard.ipn.urls')),
         )
 
-1. Profit.
+7. Connect to the provided signals and have them do something useful:
+    - `payment_was_successful` 
+    - `payment_was_flagged`
+
+
+8. Profit.
 
 
 Links:
@@ -334,6 +351,8 @@ Links:
 1. [Set your IPN Endpoint on the PayPal Sandbox](https://www.sandbox.paypal.com/us/cgi-bin/webscr?cmd=_profile-ipn-notify)
 
 2. [Django PayPal on Google Groups](http://groups.google.com/group/django-paypal)
+
+3. [PayPal API Reference](https://cms.paypal.com/us/cgi-bin/?cmd=_render-content&content_ID=developer/howto_api_reference)
 
 License (MIT)
 =============
